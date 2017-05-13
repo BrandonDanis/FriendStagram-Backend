@@ -235,3 +235,21 @@ module.exports.updateProfilePicture = ({user: {id = null}, body: {image_url = nu
         }
     )
 }
+
+module.exports.updateBackgroundPicture = ({user: {id = null}, body: {image_url = null}},res) => {
+    const updateBackgroundPictureObservable = user.updateBackgroundPicture(id, image_url)
+    updateBackgroundPictureObservable.subscribe(
+        () => {
+            res.status(200).json({
+                error: false,
+                data: 'Successfully update user profile'
+            })
+        },
+        err => {
+            res.status(500).json({
+                error: true,
+                data: 'Failed to update user profile'
+            })
+        }
+    )
+}

@@ -274,3 +274,16 @@ module.exports.updateProfilePicture = (userId, image_url) => {
         })
     })
 }
+
+module.exports.updateBackgroundPicture = (userId, image_url) => {
+    return Rx.Observable.create(observer => {
+        db.update('users', {profile_background_url: image_url}).where('id', userId).run((err) => {
+            if(err){
+                observer.onError(err)
+            }else{
+                observer.onNext()
+            }
+            observer.onCompleted()
+        })
+    })
+}

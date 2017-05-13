@@ -224,6 +224,46 @@ describe("Users", () => {
         })
     })
 
+    it("PUT /user/background_picture | Should allow user to update his background picture", (done) => {
+        let user = {
+            "username": "brando",
+            "password": "brando",
+            "email": "brando@brando.com",
+            "name": "Brandon Danis"
+        }
+
+        let image_url = "my_bg_image.png"
+
+        AddUser(user, () => {
+            LoginUser(user, (token) => {
+                chai.request(server)
+                    .put("/users/background_picture")
+                    .set('token', token)
+                    .send({image_url: image_url})
+                    .end((err, res) => {
+                        res.should.have.status(200)
+                        res.body.should.be.a('object')
+                        res.body.should.have.property('error')
+                        res.body.should.have.property('error').eql(false)
+                        res.body.should.have.property('data')
+                        res.body.should.have.property('data').eql('Successfully update user profile')
+                        chai.request(server)
+                            .get(`/users/${user.username}`)
+                            .end((err, res) => {
+                                res.should.have.status(202)
+                                res.body.should.be.a('object')
+                                res.body.should.have.property('error')
+                                res.body.should.have.property('error').eql(false)
+                                res.body.should.have.property('data')
+                                res.body.data.should.have.property('profile_background_url')
+                                res.body.data.should.have.property('profile_background_url').eql(image_url)
+                                done()
+                            })
+                    })
+            })
+        })
+    })
+
 })
 
 describe("Posts", () => {
