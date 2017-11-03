@@ -66,6 +66,7 @@ module.exports.findUser = async ({params: {username = null}}, res) => {
       username)
     userInfo.posts = postInfo.map((post) => {
       const newPost = post
+      newPost.url = post.image_url
       newPost.user = {
         username: userInfo.username,
         profile_picture_url: userInfo.profile_picture_url,
