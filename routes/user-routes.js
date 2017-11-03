@@ -2,8 +2,7 @@ const app = require('express').Router()
 const usersController = require('../controllers/users_controller')
 const auth = require('../auth.js')
 
-// app.post('/', (req, res) => res.status(201).json({'hi': 'hi'}))
-app.get('/', (req, res) => res.status(200).json({bye: 'bye'}))
+app.get('/', usersController.findAllUsers)
 app.post('/', usersController.register)
 app.delete('/', auth.authenticate, usersController.delete)
 
