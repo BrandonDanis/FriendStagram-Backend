@@ -20,6 +20,7 @@ app.get('/ping', (req, res) => {
 app.use('/users', require('./routes/user-routes'))
 app.use('/posts', require('./routes/post-routes'))
 app.use('/follow', require('./routes/follow-routes'))
+app.use('/search', require('./routes/search-routes'))
 app.use(errorHandler)
 
 const port = process.env.PORT || 8080

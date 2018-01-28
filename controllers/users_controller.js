@@ -64,35 +64,35 @@ module.exports.login = async ({body}, res, next) => {
   }
 
   try {
-    const {id: uuid, user_id: userID} = await userModel.login(username, password)
+    const {id: uuid, user_id: userID, verified, profile_picture_url} = await userModel.login(username, password)
     const payload = {
       id: userID,
       timestamp: new Date(),
       uuid
     }
     const token = jwt.encode(payload, cfg.jwtSecret)
-    return Response.OK(res, token)
+    return Response.OK(res, {token, verified, profile_picture_url})
   } catch (e) {
     if (e.message === 'Require key') {
       console.error('jwtSecret is missing')
+      return next(FSError.unknown())
     }
-    next(FSError.unknown())
+    next(e)
   }
 }
 
 module.exports.changeUser = async ({user, body}, res, next) => {
   const {id} = user
-  const {old_password: oldPassword, new_password: newPassword} = body
 
   let errors = utils.getMissingKeys(user, [{key: 'id', name: 'user ID'}])
-  errors = errors.concat(utils.getMissingKeys(body, [{key: 'old_password', name: 'old password'}, {key: 'new_password', name: 'new password'}]))
+  errors = errors.concat(utils.getMissingKeys(body, [{key: 'old_password', name: 'old password'}]))
   if (!errors.isEmpty()) {
     return next(FSError.missingParameters({errors}))
   }
 
   try {
-    await userModel.changePassword(id, oldPassword, newPassword)
-    return Response.OK(res, {title: 'Successfully updated user'})
+    await userModel.changeUser(id, body)
+    return Response.OK(res, 'Successfully updated user')
   } catch (e) {
     next(e)
   }
@@ -148,9 +148,9 @@ module.exports.updateBackgroundPicture = async ({user: {id = null}, body: {image
   }
 }
 
-module.exports.getDefaultProfilePicture = async ({user: {id = null}}, res, next) => {
+module.exports.getDefaultProfilePicture = async ({query: {username = null}}, res, next) => {
   try {
-    const [{username, datecreated}] = await userModel.findUserByID(id)
+    const [{datecreated}] = await userModel.findUserByUsername(username)
     const today = new Date()
     res.set({
       'Content-Type': 'image/png',

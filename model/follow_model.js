@@ -32,5 +32,5 @@ module.exports.getAllFollowing = userID => db.raw(
   [userID]).rows()
 
 module.exports.getAllFollowers = userID => db.raw(
-  'SELECT u.id, u.name, u.username, u.profile_picture_url FROM users u JOIN users_followers uf ON u.id = uf.follower WHERE u.following = $1',
+  'SELECT u.id, u.name, u.username, u.profile_picture_url FROM users u JOIN users_follows uf ON u.id = uf.follower WHERE uf.following = $1',
   [userID]).rows()

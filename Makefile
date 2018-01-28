@@ -17,4 +17,8 @@ build:
 	sudo docker build -t friendstagram/$(SERVICE) .
 
 run:
-	docker-compose -f docker-compose.yml up -d friendstagram
+	sudo docker-compose -f docker-compose.yml up -d friendstagram
+
+restart:
+	make build
+	sudo docker-compose -f docker-compose.yml up --build -d friendstagram

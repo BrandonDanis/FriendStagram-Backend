@@ -56,6 +56,13 @@ const AddInvalidUser = async (user, error) => {
 const LoginUser = async (user) => {
   const res = await chai.request(server).post('/users/login').send(user)
   VerifyValidResponse(res)
+  const {body: {data}} = res
+  data.should.be.a('object')
+  data.should.have.property('token')
+  data.should.have.property('verified')
+  data.should.have.property('verified').eql(false)
+  data.should.have.property('profile_picture_url')
+  data.should.have.property('profile_picture_url').eql(null)
   return res.body.data
 }
 
@@ -184,16 +191,14 @@ describe('Users', () => {
 
   it('POST /users/login | Should login user', async () => {
     await AddUser(user1)
-    const res = await chai.request(server).post('/users/login').send(user1)
-    VerifyValidResponse(res)
-    res.body.data.should.be.a('string')
+    await LoginUser(user1)
   })
 
   it('PUT /user/profile_picture | Should allow user to update his profile picture', async () => {
     const imageUrl = 'myimage.png'
 
     await AddUser(user1)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     let res = await chai.request(server).put('/users/profile_picture').set('token', token).send({image_url: imageUrl})
     VerifyValidResponse(res)
     res.body.should.have.property('data').eql('Successfully updated your user profile')
@@ -207,7 +212,7 @@ describe('Users', () => {
     const imageUrl = 'my_bg_image.png'
 
     await AddUser(user1)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     let res = await chai.request(server).put('/users/background_picture').set('token', token).send({image_url: imageUrl})
     VerifyValidResponse(res)
     res.body.should.have.property('data').eql('Successfully updated your user profile')
@@ -220,7 +225,7 @@ describe('Users', () => {
   it('GET /users/default_profile_picture | Should return a user\'s default profile picture', async () => {
     const encodedTestPicture = base64Encode(Buffer.from(fs.readFileSync('test/default_profile_picture.png')))
     await AddUser(user1)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     const res = await chai.request(server)
       .get('/users/default_profile_picture')
       .set('token', token)
@@ -255,7 +260,7 @@ describe('Posts', () => {
 
   it('POST /posts | Should submit a new post', async () => {
     await AddUser(user1)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     await SubmitPost(post, token)
     const res = await chai.request(server).get('/posts')
     VerifyValidResponse(res)
@@ -280,7 +285,7 @@ describe('Posts', () => {
 
   it('GET /posts/id/:id | Should get a post by id', async () => {
     await AddUser(user1)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     const postInfo = await SubmitPost(post, token)
     const res = await chai.request(server).get(`/posts/id/${postInfo.id}`)
     VerifyValidResponse(res)
@@ -293,8 +298,8 @@ describe('Posts', () => {
   it('POST /posts/like/:id | Should like a post by id', async () => {
     await AddUser(user1)
     await AddUser(user2)
-    const token = await LoginUser(user1)
-    const token2 = await LoginUser(user2)
+    const {token} = await LoginUser(user1)
+    const {token: token2} = await LoginUser(user2)
     const postInfo = await SubmitPost(post, token)
     const res = await chai.request(server).post(`/posts/like/${postInfo.id}`).set('token', token2).send({id: postInfo.id})
     VerifyValidResponse(res)
@@ -303,8 +308,8 @@ describe('Posts', () => {
   it('POST /posts/like/:id | Should fail to like an already liked post', async () => {
     await AddUser(user1)
     await AddUser(user2)
-    const token = await LoginUser(user1)
-    const token2 = await LoginUser(user2)
+    const {token} = await LoginUser(user1)
+    const {token: token2} = await LoginUser(user2)
     const postInfo = await SubmitPost(post, token)
     await chai.request(server).post(`/posts/like/${postInfo.id}`).set('token', token2).send({id: postInfo.id})
     const res = await chai.request(server).post(`/posts/like/${postInfo.id}`).set('token', token2).send({id: postInfo.id})
@@ -314,8 +319,8 @@ describe('Posts', () => {
   it('DELETE /posts/like/:id | Should unlike a post by id', async () => {
     await AddUser(user1)
     await AddUser(user2)
-    const token = await LoginUser(user1)
-    const token2 = await LoginUser(user2)
+    const {token} = await LoginUser(user1)
+    const {token: token2} = await LoginUser(user2)
     const postInfo = await SubmitPost(post, token)
     await chai.request(server).post(`/posts/like/${postInfo.id}`).set('token', token2).send({id: postInfo.id})
     const res = await chai.request(server).delete(`/posts/like/${postInfo.id}`).set('token', token2).send({id: postInfo.id})
@@ -325,8 +330,8 @@ describe('Posts', () => {
   it('POST /posts/unlike/:id | Should fail to unlike an already unliked post', async () => {
     await AddUser(user1)
     await AddUser(user2)
-    const token = await LoginUser(user1)
-    const token2 = await LoginUser(user2)
+    const {token} = await LoginUser(user1)
+    const {token: token2} = await LoginUser(user2)
     const postInfo = await SubmitPost(post, token)
     await chai.request(server).post(`/posts/like/${postInfo.id}`).set('token', token2).send({id: postInfo.id})
     await chai.request(server).delete(`/posts/like/${postInfo.id}`).set('token', token2).send({id: postInfo.id})
@@ -336,7 +341,7 @@ describe('Posts', () => {
 
   it('DELETE /posts | Should delete newly added post', async () => {
     await AddUser(user1)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     const postInfo = await SubmitPost(post, token)
     const res = await chai.request(server).delete('/posts/').set('token', token).send({post: postInfo.id})
     VerifyValidResponse(res)
@@ -345,7 +350,7 @@ describe('Posts', () => {
 
   it('DELETE /posts | Should not delete post when header is not set', async () => {
     await AddUser(user1)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     const postInfo = await SubmitPost(post, token)
     const res = await chai.request(server).delete('/posts/').send({post: postInfo.id})
     VerifyInvalidResponse(res, new FSError({code: 'FS-ERR-4', title: 'Bad token', status: '401'}))
@@ -382,7 +387,7 @@ describe('Follow', () => {
   it('POST /follow | User should be following User2', async () => {
     await AddUser(user1)
     const secondUsername = await AddUser(user2)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     const res = await chai.request(server).post('/follow').set('token', token).send({followUsername: secondUsername})
     VerifyValidResponse(res)
     res.body.should.have.property('data').eql('Now Following')
@@ -390,7 +395,7 @@ describe('Follow', () => {
 
   it('POST /follow | User should not be able to follow a non-existent user', async () => {
     await AddUser(user1)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     const res = await chai.request(server).post('/follow').set('token', token).send({followUsername: 'rushil'})
     VerifyInvalidResponse(res, new FSError({code: 'FS-ERR-1', title: 'User doesn\'t exist', status: '401'}))
   })
@@ -398,7 +403,7 @@ describe('Follow', () => {
   it('POST /follow | User should be told if already following another user', async () => {
     await AddUser(user1)
     const secondUsername = await AddUser(user2)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     await FollowUser(token, secondUsername)
     const res = await chai.request(server).post('/follow').set('token', token).send({followUsername: secondUsername})
     VerifyValidResponse(res)
@@ -408,7 +413,7 @@ describe('Follow', () => {
   it('DELETE /follow | User should be able to unfollow a user', async () => {
     await AddUser(user1)
     const secondUsername = await AddUser(user2)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     await FollowUser(token, secondUsername)
     const res = await chai.request(server).delete('/follow').set('token', token).send({unfollowUsername: secondUsername})
     VerifyValidResponse(res)
@@ -417,7 +422,7 @@ describe('Follow', () => {
 
   it('DELETE /follow | User should be able to attempt to unfollow a non-existent user', async () => {
     await AddUser(user1)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     const res = await chai.request(server).delete('/follow').set('token', token).send({unfollowUsername: 'rushil'})
     VerifyValidResponse(res)
     res.body.should.have.property('data').eql('You have unfollowed rushil')
@@ -426,7 +431,7 @@ describe('Follow', () => {
   it('GET /users/:username | Should be able to see who is following when requesting user', async () => {
     const firstUsername = await AddUser(user1)
     const secondUsername = await AddUser(user2)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     await FollowUser(token, secondUsername)
     const res = await chai.request(server).get(`/users/${user2.username}`)
     VerifyValidResponse(res, 202)
@@ -453,7 +458,7 @@ describe('Follow', () => {
   it('GET /users/:username | Should be able to see who the user is following', async () => {
     await AddUser(user1)
     const secondUsername = await AddUser(user2)
-    const token = await LoginUser(user1)
+    const {token} = await LoginUser(user1)
     await FollowUser(token, secondUsername)
     const res = await chai.request(server).get(`/users/${user1.username}`)
     VerifyValidResponse(res, 202)

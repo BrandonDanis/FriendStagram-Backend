@@ -34,10 +34,7 @@
     "jwt-simple": "^0.5.0",
     "mocha": "^3.2.0",
     "morgan": "^1.7.0",
-    "passport": "^0.3.2",
-    "passport-jwt": "^2.1.0",
     "pg-bricks": "^0.6.0",
-    "rx": "^4.1.0",
     "statuses": "^1.4.0",
     "uuid": "^2.0.3"
   },

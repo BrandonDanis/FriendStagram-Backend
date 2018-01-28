@@ -9,7 +9,7 @@ app.delete('/', auth.authenticate, usersController.delete)
 app.post('/login', usersController.login)
 app.get('/logoff', auth.authenticate, usersController.logOff)
 app.get('/logoffallothersessions', auth.authenticate, usersController.logOffAllOtherSessions)
-app.get('/default_profile_picture', auth.authenticate, usersController.getDefaultProfilePicture)
+app.get('/default_profile_picture', usersController.getDefaultProfilePicture)
 
 app.put('/profile_picture', auth.authenticate, usersController.updateProfilePicture)
 app.put('/background_picture', auth.authenticate, usersController.updateBackgroundPicture)

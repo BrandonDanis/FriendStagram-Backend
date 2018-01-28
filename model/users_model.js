@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt')
 const uuid = require('uuid')
 
+const followModel = require('./follow_model')
 const config = require('../config')
 const db = require('pg-bricks').configure(config[process.env.NODE_ENV || 'development'])
 const utils = require('../utils/util')
@@ -23,46 +24,28 @@ module.exports.register = async (username, unHashedPassword, email, name) => {
 
 module.exports.findUserByUsername = async (username) => {
   const userPromise = db.select([
+    'id',
     'name',
     'username',
     'datecreated',
     'description',
     'profile_picture_url',
-    'profile_background_url']).from('users').where({username}).row()
+    'profile_background_url'
+  ]).from('users').where({username}).row()
 
   const postsPromise = db.raw(
     'SELECT * FROM posts WHERE user_id = (SELECT id FROM users WHERE username  = $1) ORDER BY id DESC;',
-    [username]).rows()
-
-  const followerIDsPromise = db.raw(
-    'SELECT uf.follower FROM users_follows uf JOIN users u ON uf.following = u.id WHERE uf.following = (SELECT id FROM users WHERE username = $1);',
-    [username]).rows()
-
-  const followingIDsPromise = db.raw(
-    'SELECT uf.following FROM users_follows uf JOIN users u ON uf.follower = u.id WHERE uf.follower = (SELECT id FROM users WHERE username = $1);',
-    [username]).rows()
-
-  const [followerIDs, followingIDs] = await Promise.all(
-    [followerIDsPromise, followingIDsPromise])
-
-  let followersPromise
-  if (followerIDs.length !== 0) {
-    const params = followerIDs.map((id, index) => `$${index + 1}`).join(', ')
-    followersPromise = db.raw(
-      `SELECT username FROM users WHERE id IN (${params})`,
-      followerIDs.map(({follower}) => follower)).rows()
-  }
-
-  let followingPromise
-  if (followingIDs.length !== 0) {
-    const params = followingIDs.map((id, index) => `$${index + 1}`).join(', ')
-    followingPromise = db.raw(
-      `SELECT username FROM users WHERE id IN (${params})`,
-      followingIDs.map(({following}) => following)).rows()
-  }
+    [username]
+  ).rows()
 
   try {
-    return await Promise.all([userPromise, postsPromise, followersPromise, followingPromise])
+    const [user, posts] = await Promise.all([userPromise, postsPromise])
+    const followersPromise = followModel.getAllFollowers(user.id)
+    const followingPromise = followModel.getAllFollowing(user.id)
+    delete user.id
+
+    const [followers, following] = await Promise.all([followersPromise, followingPromise])
+    return [user, posts, followers, following]
   } catch (e) {
     if (e.message === 'Expected a row, none found') { // user not found
       throw FSError.userDoesNotExist({detail: 'User not found'})
@@ -106,19 +89,20 @@ module.exports.comparePasswordByID = async (id, password) => {
 }
 
 module.exports.login = async (username, password) => {
-  const possibleUser = await db.select(['username', 'password'])
+  const {id: userID, password: hashedPassword, verified, profile_picture_url} = await db
+    .select(['id', 'password', 'verified', 'profile_picture_url'])
     .from('users')
     .where({username})
     .row()
-  const validPssd = await bcrypt.compare(password, possibleUser.password)
+  const validPassword = await bcrypt.compare(password, hashedPassword)
 
-  if (!validPssd) {
+  if (!validPassword) {
     throw FSError.invalidPassword()
   }
 
-  return db.raw(
-    'INSERT INTO users_sessions VALUES($1, (SELECT id FROM users WHERE username = $2)) RETURNING *;',
-    [uuid.v4(), username]).row()
+  const uuidStr = uuid.v4()
+  await db.raw('INSERT INTO users_sessions VALUES ($1, $2);', [uuidStr, userID]).run()
+  return {id: uuidStr, user_id: userID, verified, profile_picture_url}
 }
 
 module.exports.changePassword = async (id, password, newPassword) => {
@@ -132,6 +116,31 @@ module.exports.changePassword = async (id, password, newPassword) => {
 
   return db.update('users').set('password', hashedPassword).where({id}).run()
 }
+
+module.exports.changeUser = async (id, updateObj) => {
+  const {old_password: oldPassword, new_password: newPassword} = updateObj
+  const passwordMatch = await module.exports.comparePasswordByID(id, oldPassword)
+  if (!passwordMatch) {
+    throw FSError.invalidPassword()
+  }
+
+  const promises = []
+  if (newPassword) {
+    promises.push(module.exports.changePassword(id, oldPassword, newPassword))
+  }
+  delete updateObj.old_password
+  delete updateObj.new_password
+
+  const keys = Object.keys(updateObj)
+  const query = `UPDATE users SET ${keys.map((key, index) => `${key} = $${index + 1}`).join(', ')} WHERE id = $${keys.length + 1};`
+  const params = keys.map(key => updateObj[key])
+  params.push(id)
+  promises.push(db.raw(query, params).run())
+
+  await Promise.all(promises)
+}
+
+module.exports.search = query => db.raw('SELECT username, name, email, profile_picture_url FROM users, similarity(name, $1) AS name_similarity, similarity(username, $1) AS username_similarity WHERE (name % $1 OR username % $1) AND profile_picture_url IS NOT NULL ORDER BY name_similarity DESC, username_similarity DESC', [query]).rows()
 
 module.exports.logOff = id => db.delete('users_sessions').where({id}).run()
 

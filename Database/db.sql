@@ -1,5 +1,6 @@
-DROP TABLE IF EXISTS users;
-CREATE TABLE users (
+CREATE EXTENSION pg_trgm;
+
+CREATE TABLE IF NOT EXISTS users (
   id                        SERIAL,
   name                      VARCHAR(35),
   username                  VARCHAR(25)  NOT NULL UNIQUE,
@@ -14,17 +15,17 @@ CREATE TABLE users (
   UNIQUE (username, email),
   PRIMARY KEY (id)
 );
+CREATE INDEX users_name_trigram_idx ON users USING GIST (name gist_trgm_ops);
+CREATE INDEX users_username_trigram_idx ON users USING GIST (username gist_trgm_ops);
 
-DROP TABLE IF EXISTS users_sessions;
-CREATE TABLE users_sessions (
+CREATE TABLE IF NOT EXISTS users_sessions (
     id UUID     NOT NULL,
     user_id     INTEGER NOT NULL,
     PRIMARY KEY (id, user_id),
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
-DROP TABLE IF EXISTS users_follows;
-CREATE TABLE users_follows (
+CREATE TABLE IF NOT EXISTS users_follows (
     follower    INTEGER NOT NULL,
     following   INTEGER NOT NULL,
     PRIMARY KEY (follower, following),
@@ -32,15 +33,13 @@ CREATE TABLE users_follows (
     FOREIGN KEY (following) REFERENCES users (id) ON DELETE CASCADE
 );
 
-DROP TABLE IF EXISTS tags;
-CREATE TABLE tags (
+CREATE TABLE IF NOT EXISTS tags (
   id   SERIAL,
   name VARCHAR,
   PRIMARY KEY (id)
 );
 
-DROP TABLE IF EXISTS posts;
-CREATE TABLE posts (
+CREATE TABLE IF NOT EXISTS posts (
   id          SERIAL,
   description VARCHAR(250),
   user_id     INTEGER,
@@ -51,8 +50,7 @@ CREATE TABLE posts (
   PRIMARY KEY (id)
 );
 
-DROP TABLE IF EXISTS post_likes;
-CREATE TABLE post_likes (
+CREATE TABLE IF NOT EXISTS post_likes (
   post_id INTEGER,
   user_id INTEGER,
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
@@ -60,8 +58,7 @@ CREATE TABLE post_likes (
   PRIMARY KEY (post_id, user_id)
 );
 
-DROP TABLE IF EXISTS post_tags;
-CREATE TABLE post_tags (
+CREATE TABLE IF NOT EXISTS post_tags (
   id      SERIAL,
   post_id INTEGER,
   tag_id  INTEGER,
